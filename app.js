@@ -100,8 +100,9 @@ wss.on('connection', (ws, req) => {
               rooms[r].activeCards[data[i]] = rooms[r].deck[rooms[r].deckIndex++];
             }
           }
-          // players[id].score++;
+          players[id].score++;
           broadcast(wss, ws, "load-game", rooms[r].activeCards);
+          emit(ws, "valid-set", players[id]);
         }
         break;
 
@@ -160,6 +161,10 @@ function startNewGame(wss, ws) {
   broadcast(wss, ws, "new-game", {});
   rooms[ws.url].activeCards = [];
   drawCards(wss, ws, 12)
+
+  for (const player in players) {
+    players[player].score = 0;
+  }
 }
 
 function uuidv4() {
