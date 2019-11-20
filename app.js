@@ -1,3 +1,4 @@
+'use strict';
 const express = require('express');
 const WebSocket = require('ws');
 
@@ -5,7 +6,14 @@ const PORT = process.env.PORT || 3001;
 
 const app = express();
 app
-  .use('*',express.static(__dirname + "/client/dist"))
+  .use(express.static(__dirname + "/client/dist"))
+  .get('/favicon.ico', (req, res) => {
+    res.sendFile(__dirname + 'client/dist/favicon.ico');
+  })
+  .get('/*', (req, res) => {
+    res.sendFile(__dirname + 'client/dist/index.html');
+  })
+
 
 const server = require('http').createServer(app);
 const wss = new WebSocket.Server({ server: server })
@@ -30,7 +38,6 @@ function broadcast(wss, ws, message, data) {
 }
 
 let numClients = 0;
-let existingGame = false;
 let players = {};
 let rooms = {};
 
@@ -58,7 +65,7 @@ wss.on('connection', (ws, req) => {
   }
 
   console.log("(%s) clients across (%s) rooms.", numClients, Object.keys(rooms).length);
-  for (room in rooms) {
+  for (const room in rooms) {
     console.log("room: %s (%s)", room, rooms[room].numUsers)
   }
 
@@ -123,8 +130,6 @@ wss.on('connection', (ws, req) => {
 
 })
 
-
-
 /** GAME FUNCTIONS */
 
 /* Creates a random sequence of numbers from 0 to n-1. */
@@ -152,12 +157,9 @@ function startNewGame(wss, ws) {
   // for (let i = 50; i < 65; i++) {
   //   rooms[ws.url].deck.push(i)
   // }
-  // deckIndex = 0;
   rooms[ws.url].deckIndex = 0;
   broadcast(wss, ws, "new-game", {});
-  // activeCards = [];
   rooms[ws.url].activeCards = [];
-  console.log("new game draw")
   drawCards(wss, ws, 12)
 }
 
