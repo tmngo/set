@@ -6,15 +6,11 @@ const PORT = process.env.PORT || 3001;
 
 const app = express();
 app
-  .use(express.static(__dirname + "/client/dist"))
-  .get('/favicon.ico', (req, res) => {
-    res.sendFile(__dirname + '/client/dist/favicon.ico');
-  })
+  .use(express.static(__dirname + "/dist/"))
   .get('/*', (req, res) => {
-    res.sendFile(__dirname + '/client/dist/index.html');
+    res.sendFile(__dirname + '/dist/index.html');
   })
 
-console.log(__dirname + 'client/dist/index.html')
 
 const server = require('http').createServer(app);
 const wss = new WebSocket.Server({ server: server })
