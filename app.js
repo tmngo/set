@@ -90,8 +90,6 @@ wss.on('connection', (ws, req) => {
         let isValid = isSet(parseCards(data, rooms[r].activeCards));
         console.log(parseCards(data, rooms[r].activeCards))
         console.log(isValid ? "Valid set." : "Invalid set.") 
-        console.log(rooms[r].deckIndex)
-        console.log(rooms[r].deck.length)
         if (isValid) {
           data.sort((a, b) => { return b - a; });
           for (let i = 0; i < data.length; i++) {
@@ -103,7 +101,6 @@ wss.on('connection', (ws, req) => {
             }
           }
           // players[id].score++;
-          // console.log(players )
           broadcast(wss, ws, "load-game", rooms[r].activeCards);
         }
         break;
