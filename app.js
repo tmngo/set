@@ -115,6 +115,11 @@ wss.on('connection', (ws, req) => {
     }
   });
 
+  setInterval(() => { 
+    let time = new Date().toTimeString(); 
+    emit(ws, 'time', time)
+  }, 45000);
+
   /** CLOSE */
   ws.on("close", function() {
     numClients--;
