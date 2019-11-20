@@ -107,7 +107,9 @@ wss.on('connection', (ws, req) => {
         break;
 
       case "draw-cards":
-        drawCards(wss, ws, 3);
+        if (rooms[r].deckIndex < rooms[r].deck.length) {
+          drawCards(wss, ws, 3);
+        }
         break;
 
     }
