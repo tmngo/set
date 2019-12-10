@@ -76,20 +76,29 @@ wss.on('connection', (ws, req) => {
 
   // Handle client input
   ws.on('message', (message) => {
+
     const obj = JSON.parse(message);
     const msg = obj.message;
     const data = obj.data;
-    console.log('Received: %s', msg);
+    console.log('Received "%s" from player "%s".', msg, id);
+
     switch (msg) {
 
       case "new-game":
         startNewGame(wss, ws);
         break;
 
+      case "load-new-game":
+        loadGame(wss, ws, data);
+        break;
+
       case "submit-set":
-        let isValid = isSet(parseCards(data, rooms[r].activeCards));
-        console.log(parseCards(data, rooms[r].activeCards))
-        console.log(isValid ? "Valid set." : "Invalid set.") 
+        let cardObjects = parseCards(data, rooms[r].activeCards);
+        let isValid = isSet(cardObjects);
+        console.log("Indices: " + data.toString());
+        console.log(`Raw cards: ${rooms[r].activeCards[data[0]]},${rooms[r].activeCards[data[1]]},${rooms[r].activeCards[data[2]]}`);
+        console.log(cardObjects);
+        console.log(isValid ? "Valid set." : "Invalid set.");
         if (isValid) {
           data.sort((a, b) => { return b - a; });
           for (let i = 0; i < data.length; i++) {
@@ -103,6 +112,8 @@ wss.on('connection', (ws, req) => {
           players[id].score++;
           broadcast(wss, ws, "load-game", rooms[r].activeCards);
           emit(ws, "valid-set", players[id]);
+        } else {
+          emit(ws, "invalid-set", players[id]);
         }
         break;
 
@@ -115,18 +126,23 @@ wss.on('connection', (ws, req) => {
     }
   });
 
+  /* Prevent Heroku server timeout */
   setInterval(() => { 
     let time = new Date().toTimeString(); 
     emit(ws, 'time', time)
-  }, 45000);
+  }, 30000);
 
   /** CLOSE */
   ws.on("close", function() {
     numClients--;
-    console.log("User %s disconnected.", id);
-    console.log("(%s) clients.", numClients);
-    if (rooms[r].numUsers === 1) {
+    rooms[r].numUsers--;
+    if (rooms[r].numUsers === 0) {
       delete rooms[r]
+    }
+    console.log("User %s disconnected.", id);
+    console.log("(%s) clients across (%s) rooms.", numClients, Object.keys(rooms).length);
+    for (const room in rooms) {
+      console.log("room: %s (%s)", room, rooms[room].numUsers)
     }
   })
 
@@ -159,6 +175,18 @@ function startNewGame(wss, ws) {
   // for (let i = 50; i < 65; i++) {
   //   rooms[ws.url].deck.push(i)
   // }
+  rooms[ws.url].deckIndex = 0;
+  broadcast(wss, ws, "new-game", {});
+  rooms[ws.url].activeCards = [];
+  drawCards(wss, ws, 12)
+
+  for (const player in players) {
+    players[player].score = 0;
+  }
+}
+
+function loadGame(wss, ws, arr) {
+  rooms[ws.url].deck = arr
   rooms[ws.url].deckIndex = 0;
   broadcast(wss, ws, "new-game", {});
   rooms[ws.url].activeCards = [];
