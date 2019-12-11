@@ -51,7 +51,7 @@ wss.on('connection', (ws, req) => {
     // Create new room
     rooms[r] = {
       numUsers: 1,
-      users: {},
+      players: {},
       existingGame: false,
     };
   } else {
@@ -86,12 +86,12 @@ wss.on('connection', (ws, req) => {
 
       case "new-game":
         startNewGame(wss, ws);
-        broadcast(wss, ws, "update-players", players);
+        broadcast(wss, ws, "update-players", rooms[r].players);
         break;
 
       case "load-new-game":
         loadGame(wss, ws, data);
-        broadcast(wss, ws, "update-players", players);
+        broadcast(wss, ws, "update-players", rooms[r].players);
         break;
 
       case "user-connected":
@@ -100,7 +100,7 @@ wss.on('connection', (ws, req) => {
           // new player
           id = uuidv4();
           let username = "player_" + id[0] + id[1] + id[2]
-          players[id] = {
+          rooms[r].players[id] = {
             score: 0,
             penalties: 0,
             username: username,
@@ -112,13 +112,13 @@ wss.on('connection', (ws, req) => {
           id = data;
           console.log(`User [ %s ] reconnected to %s.`, id, req.url)
         }
-        broadcast(wss, ws, "update-players", players);
+        broadcast(wss, ws, "update-players", rooms[r].players);
         break;
 
       case "change-name":
         console.log("Name changed from [ %s ] to [ %s ].", players[id].username, data)
         players[id].username = data;
-        broadcast(wss, ws, "update-players", players);
+        broadcast(wss, ws, "update-players", rooms[r].players);
         break;
 
       case "submit-set":
@@ -140,13 +140,13 @@ wss.on('connection', (ws, req) => {
           }
           players[id].score++;
           broadcast(wss, ws, "load-game", rooms[r].activeCards);
-          emit(ws, "valid-set", players[id]);
+          emit(ws, "valid-set");
         } else {
           players[id].penalties++;
-          emit(ws, "invalid-set", players[id]);
+          emit(ws, "invalid-set");
         }
         console.log(players)
-        broadcast(wss, ws, "update-players", players);
+        broadcast(wss, ws, "update-players", rooms[r].players);
         break;
 
       case "draw-cards":
