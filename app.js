@@ -116,8 +116,8 @@ wss.on('connection', (ws, req) => {
         break;
 
       case "change-name":
-        console.log("Name changed from [ %s ] to [ %s ].", players[id].username, data)
-        players[id].username = data;
+        console.log("Name changed from [ %s ] to [ %s ].", rooms[r].players[id].username, data)
+        rooms[r].players[id].username = data;
         broadcast(wss, ws, "update-players", rooms[r].players);
         break;
 
@@ -127,7 +127,7 @@ wss.on('connection', (ws, req) => {
         console.log("Indices: " + data.toString());
         console.log(`Raw cards: ${rooms[r].activeCards[data[0]]},${rooms[r].activeCards[data[1]]},${rooms[r].activeCards[data[2]]}`);
         console.log(cardObjects);
-        console.log(isValid ? `Valid set from ${players[id].username}.` : `Invalid set from ${players[id].username}.`);
+        console.log(isValid ? `Valid set from ${rooms[r].players[id].username}.` : `Invalid set from ${rooms[r].players[id].username}.`);
         if (isValid) {
           data.sort((a, b) => { return b - a; });
           for (let i = 0; i < data.length; i++) {
@@ -138,11 +138,11 @@ wss.on('connection', (ws, req) => {
               rooms[r].activeCards[data[i]] = rooms[r].deck[rooms[r].deckIndex++];
             }
           }
-          players[id].score++;
+          rooms[r].players[id].score++;
           broadcast(wss, ws, "load-game", rooms[r].activeCards);
           emit(ws, "valid-set");
         } else {
-          players[id].penalties++;
+          rooms[r].players[id].penalties++;
           emit(ws, "invalid-set");
         }
         console.log(players)
