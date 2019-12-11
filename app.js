@@ -168,6 +168,10 @@ wss.on('connection', (ws, req) => {
   ws.on("close", function() {
     numClients--;
 
+    // remove player
+    delete rooms[r].players[id]
+    broadcast(wss, ws, "update-players", rooms[r].players);
+
     if (rooms[r] !== undefined) {
       rooms[r].numUsers--;
       if (rooms[r].numUsers === 0) {
