@@ -140,10 +140,10 @@ wss.on('connection', (ws, req) => {
           }
           rooms[r].players[id].score++;
           broadcast(wss, ws, "load-game", rooms[r].activeCards);
-          emit(ws, "valid-set");
+          emit(ws, "valid-set", rooms[r].players[id]);
         } else {
           rooms[r].players[id].penalties++;
-          emit(ws, "invalid-set");
+          emit(ws, "invalid-set", rooms[r].players[id]);
         }
         console.log(players)
         broadcast(wss, ws, "update-players", rooms[r].players);
