@@ -37,27 +37,25 @@ function broadcast(wss, ws, message, data) {
 let numClients = 0;
 let players = {};
 let rooms = {};
+let deleteTimeout;
 
 wss.on('connection', (ws, req) => {
 
-  /** OPEN */
-  let id = uuidv4();
-  players[id] = {
-    score: 0,
-    username: "Player" + numClients,
-  }
-  
-  numClients++;
-  console.log("User [ %s ] connected at %s", id, req.url);
+  /* OPEN CONNECTION */
+  let id = ""; 
+  clearTimeout(deleteTimeout);
+
   ws.url = req.url;
   let r = ws.url;
   if (!rooms.hasOwnProperty(ws.url)) {
+    // Create new room
     rooms[r] = {
       numUsers: 1,
       users: {},
       existingGame: false,
     };
   } else {
+    // Join existing room
     rooms[r].numUsers++;
   }
 
@@ -68,9 +66,11 @@ wss.on('connection', (ws, req) => {
 
   /** INITIALIZE GAME */
   if (numClients === 0 || rooms[ws.url].existingGame === false) {
+    // Create new game
     startNewGame(wss, ws);
     rooms[ws.url].existingGame = true;
   } else {
+    // Load existing game
     emit(ws, "load-game", rooms[ws.url].activeCards);
   }
 
@@ -78,18 +78,47 @@ wss.on('connection', (ws, req) => {
   ws.on('message', (message) => {
 
     const obj = JSON.parse(message);
-    const msg = obj.message;
+    const action = obj.message;
     const data = obj.data;
-    console.log('Received "%s" from player "%s".', msg, id);
+    console.log('Received "%s" from player "%s".', action, id);
 
-    switch (msg) {
+    switch (action) {
 
       case "new-game":
         startNewGame(wss, ws);
+        broadcast(wss, ws, "update-players", players);
         break;
 
       case "load-new-game":
         loadGame(wss, ws, data);
+        broadcast(wss, ws, "update-players", players);
+        break;
+
+      case "user-connected":
+        numClients++;
+        if (data === "") {
+          // new player
+          id = uuidv4();
+          let username = "player_" + id[0] + id[1] + id[2]
+          players[id] = {
+            score: 0,
+            penalties: 0,
+            username: username,
+          }
+          emit(ws, "set-user-id", {id: id, name: username});
+          console.log("User [ %s ] connected at %s.", id, req.url);
+        } else {
+          // returning player
+          id = data;
+          console.log(`User [ %s ] reconnected to %s.`, id, req.url)
+        }
+        broadcast(wss, ws, "update-players", players);
+        break;
+
+      case "change-name":
+        console.log("Name changed from [ %s ] to [ %s ].", players[id].username, data)
+        players[id].username = data;
+        broadcast(wss, ws, "update-players", players);
         break;
 
       case "submit-set":
@@ -98,7 +127,7 @@ wss.on('connection', (ws, req) => {
         console.log("Indices: " + data.toString());
         console.log(`Raw cards: ${rooms[r].activeCards[data[0]]},${rooms[r].activeCards[data[1]]},${rooms[r].activeCards[data[2]]}`);
         console.log(cardObjects);
-        console.log(isValid ? "Valid set." : "Invalid set.");
+        console.log(isValid ? `Valid set from ${players[id].username}.` : `Invalid set from ${players[id].username}.`);
         if (isValid) {
           data.sort((a, b) => { return b - a; });
           for (let i = 0; i < data.length; i++) {
@@ -113,8 +142,11 @@ wss.on('connection', (ws, req) => {
           broadcast(wss, ws, "load-game", rooms[r].activeCards);
           emit(ws, "valid-set", players[id]);
         } else {
+          players[id].penalties++;
           emit(ws, "invalid-set", players[id]);
         }
+        console.log(players)
+        broadcast(wss, ws, "update-players", players);
         break;
 
       case "draw-cards":
@@ -135,10 +167,16 @@ wss.on('connection', (ws, req) => {
   /** CLOSE */
   ws.on("close", function() {
     numClients--;
-    rooms[r].numUsers--;
-    if (rooms[r].numUsers === 0) {
-      delete rooms[r]
+
+    if (rooms[r] !== undefined) {
+      rooms[r].numUsers--;
+      if (rooms[r].numUsers === 0) {
+        // delete rooms[r]
+        deleteTimeout = setTimeout(() => { delete rooms[r] }, 5000);
+        console.log("Empty room deleted after 5 s.")
+      }
     }
+
     console.log("User %s disconnected.", id);
     console.log("(%s) clients across (%s) rooms.", numClients, Object.keys(rooms).length);
     for (const room in rooms) {
