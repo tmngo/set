@@ -11,7 +11,6 @@ app
     res.sendFile(__dirname + '/dist/index.html');
   })
 
-
 const server = require('http').createServer(app);
 const wss = new WebSocket.Server({ server: server })
 
@@ -131,8 +130,7 @@ wss.on('connection', (ws, req) => {
         if (isValid) {
           data.sort((a, b) => { return b - a; });
           for (let i = 0; i < data.length; i++) {
-            if (rooms[r].deckIndex >= rooms[r].deck.length 
-                || rooms[r].activeCards.length > 12) {
+            if (rooms[r].deckIndex >= rooms[r].deck.length || rooms[r].activeCards.length > 12) {
               rooms[r].activeCards.splice(data[i], 1);
             } else {
               rooms[r].activeCards[data[i]] = rooms[r].deck[rooms[r].deckIndex++];
