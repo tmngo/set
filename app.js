@@ -1,34 +1,34 @@
-'use strict';
-const express = require('express');
-const WebSocket = require('ws');
+"use strict";
+const express = require("express");
+const WebSocket = require("ws");
 
 const PORT = process.env.PORT || 8000;
 
 const app = express();
-app
-  .use(express.static(__dirname + "/dist/"))
-  .get('/*', (req, res) => {
-    res.sendFile(__dirname + '/dist/index.html');
-  })
+app.use(express.static(__dirname + "/dist/")).get("/*", (_, res) => {
+  res.sendFile(__dirname + "/dist/index.html");
+});
 
-const server = require('http').createServer(app);
-const wss = new WebSocket.Server({ server: server })
+const server = require("http").createServer(app);
+const wss = new WebSocket.Server({ server: server });
 
 server.listen(PORT, () => {
   console.log(`Listening on port ${PORT}...`);
 });
 
 function emit(ws, message, data) {
-  ws.send(JSON.stringify({
-    message: message,
-    data: data,
-  }));
+  ws.send(
+    JSON.stringify({
+      message: message,
+      data: data,
+    })
+  );
 }
 
 function broadcast(wss, ws, message, data) {
   wss.clients.forEach((client) => {
     if (client.url === ws.url && client.readyState === WebSocket.OPEN) {
-      emit(client, message, data)
+      emit(client, message, data);
     }
   });
 }
@@ -38,10 +38,9 @@ let players = {};
 let rooms = {};
 let deleteTimeout;
 
-wss.on('connection', (ws, req) => {
-
+wss.on("connection", (ws, req) => {
   /* OPEN CONNECTION */
-  let id = ""; 
+  let id = "";
   clearTimeout(deleteTimeout);
 
   ws.url = req.url;
@@ -58,9 +57,13 @@ wss.on('connection', (ws, req) => {
     rooms[r].numUsers++;
   }
 
-  console.log("(%s) clients across (%s) rooms.", numClients, Object.keys(rooms).length);
+  console.log(
+    "(%s) clients across (%s) rooms.",
+    numClients,
+    Object.keys(rooms).length
+  );
   for (const room in rooms) {
-    console.log("room: %s (%s)", room, rooms[room].numUsers)
+    console.log("room: %s (%s)", room, rooms[room].numUsers);
   }
 
   /** INITIALIZE GAME */
@@ -74,18 +77,17 @@ wss.on('connection', (ws, req) => {
   }
 
   // Handle client input
-  ws.on('message', (message) => {
-
+  ws.on("message", (message) => {
     const obj = JSON.parse(message);
     const action = obj.message;
     const data = obj.data;
     console.log('Received "%s" from player "%s".', action, id);
 
     switch (action) {
-
       case "new-game":
         startNewGame(wss, ws);
         broadcast(wss, ws, "update-players", rooms[r].players);
+        // emit(ws, "new-game", {id: id, name: username});
         break;
 
       case "load-new-game":
@@ -98,24 +100,28 @@ wss.on('connection', (ws, req) => {
         if (data === "") {
           // new player
           id = uuidv4();
-          let username = "player_" + id[0] + id[1] + id[2]
+          let username = "player_" + id[0] + id[1] + id[2];
           rooms[r].players[id] = {
             score: 0,
             penalties: 0,
             username: username,
-          }
-          emit(ws, "set-user-id", {id: id, name: username});
+          };
+          emit(ws, "set-user-id", { id: id, name: username });
           console.log("User [ %s ] connected at %s.", id, req.url);
         } else {
           // returning player
           id = data;
-          console.log(`User [ %s ] reconnected to %s.`, id, req.url)
+          console.log(`User [ %s ] reconnected to %s.`, id, req.url);
         }
         broadcast(wss, ws, "update-players", rooms[r].players);
         break;
 
       case "change-name":
-        console.log("Name changed from [ %s ] to [ %s ].", rooms[r].players[id].username, data)
+        console.log(
+          "Name changed from [ %s ] to [ %s ].",
+          rooms[r].players[id].username,
+          data
+        );
         rooms[r].players[id].username = data;
         broadcast(wss, ws, "update-players", rooms[r].players);
         break;
@@ -124,16 +130,30 @@ wss.on('connection', (ws, req) => {
         let cardObjects = parseCards(data, rooms[r].activeCards);
         let isValid = isSet(cardObjects);
         console.log("Indices: " + data.toString());
-        console.log(`Raw cards: ${rooms[r].activeCards[data[0]]},${rooms[r].activeCards[data[1]]},${rooms[r].activeCards[data[2]]}`);
+        console.log(
+          `Raw cards: ${rooms[r].activeCards[data[0]]},${
+            rooms[r].activeCards[data[1]]
+          },${rooms[r].activeCards[data[2]]}`
+        );
         console.log(cardObjects);
-        console.log(isValid ? `Valid set from ${rooms[r].players[id].username}.` : `Invalid set from ${rooms[r].players[id].username}.`);
+        console.log(
+          isValid
+            ? `Valid set from ${rooms[r].players[id].username}.`
+            : `Invalid set from ${rooms[r].players[id].username}.`
+        );
         if (isValid) {
-          data.sort((a, b) => { return b - a; });
+          data.sort((a, b) => {
+            return b - a;
+          });
           for (let i = 0; i < data.length; i++) {
-            if (rooms[r].deckIndex >= rooms[r].deck.length || rooms[r].activeCards.length > 12) {
+            if (
+              rooms[r].deckIndex >= rooms[r].deck.length ||
+              rooms[r].activeCards.length > 12
+            ) {
               rooms[r].activeCards.splice(data[i], 1);
             } else {
-              rooms[r].activeCards[data[i]] = rooms[r].deck[rooms[r].deckIndex++];
+              rooms[r].activeCards[data[i]] =
+                rooms[r].deck[rooms[r].deckIndex++];
             }
           }
           rooms[r].players[id].score++;
@@ -143,7 +163,7 @@ wss.on('connection', (ws, req) => {
           rooms[r].players[id].penalties++;
           emit(ws, "invalid-set", rooms[r].players[id]);
         }
-        console.log(players)
+        console.log(players);
         broadcast(wss, ws, "update-players", rooms[r].players);
         break;
 
@@ -152,41 +172,45 @@ wss.on('connection', (ws, req) => {
           drawCards(wss, ws, 3);
         }
         break;
-
     }
   });
 
   /* Prevent Heroku server timeout */
-  setInterval(() => { 
-    let time = new Date().toTimeString(); 
-    emit(ws, 'time', time)
+  setInterval(() => {
+    let time = new Date().toTimeString();
+    emit(ws, "time", time);
   }, 30000);
 
   /** CLOSE */
-  ws.on("close", function() {
+  ws.on("close", function () {
     numClients--;
 
     // remove player
-    delete rooms[r].players[id]
+    delete rooms[r].players[id];
     broadcast(wss, ws, "update-players", rooms[r].players);
 
     if (rooms[r] !== undefined) {
       rooms[r].numUsers--;
       if (rooms[r].numUsers === 0) {
         // delete rooms[r]
-        deleteTimeout = setTimeout(() => { delete rooms[r] }, 5000);
-        console.log("Empty room deleted after 5 s.")
+        deleteTimeout = setTimeout(() => {
+          delete rooms[r];
+        }, 5000);
+        console.log("Empty room deleted after 5 s.");
       }
     }
 
     console.log("User %s disconnected.", id);
-    console.log("(%s) clients across (%s) rooms.", numClients, Object.keys(rooms).length);
+    console.log(
+      "(%s) clients across (%s) rooms.",
+      numClients,
+      Object.keys(rooms).length
+    );
     for (const room in rooms) {
-      console.log("room: %s (%s)", room, rooms[room].numUsers)
+      console.log("room: %s (%s)", room, rooms[room].numUsers);
     }
-  })
-
-})
+  });
+});
 
 /** GAME FUNCTIONS */
 
@@ -210,7 +234,7 @@ function shuffle(a) {
 
 function startNewGame(wss, ws) {
   // deck = shuffledNumbers(81);
-  rooms[ws.url].deck = shuffledNumbers(81)
+  rooms[ws.url].deck = shuffledNumbers(81);
   // rooms[ws.url].deck = []
   // for (let i = 50; i < 65; i++) {
   //   rooms[ws.url].deck.push(i)
@@ -218,7 +242,7 @@ function startNewGame(wss, ws) {
   rooms[ws.url].deckIndex = 0;
   broadcast(wss, ws, "new-game", {});
   rooms[ws.url].activeCards = [];
-  drawCards(wss, ws, 12)
+  drawCards(wss, ws, 12);
 
   for (const player in players) {
     players[player].score = 0;
@@ -226,11 +250,11 @@ function startNewGame(wss, ws) {
 }
 
 function loadGame(wss, ws, arr) {
-  rooms[ws.url].deck = arr
+  rooms[ws.url].deck = arr;
   rooms[ws.url].deckIndex = 0;
   broadcast(wss, ws, "new-game", {});
   rooms[ws.url].activeCards = [];
-  drawCards(wss, ws, 12)
+  drawCards(wss, ws, 12);
 
   for (const player in players) {
     players[player].score = 0;
@@ -238,8 +262,9 @@ function loadGame(wss, ws, arr) {
 }
 
 function uuidv4() {
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
-    let r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+    let r = (Math.random() * 16) | 0,
+      v = c == "x" ? r : (r & 0x3) | 0x8;
     return v.toString(16);
   });
 }
@@ -252,21 +277,25 @@ function drawCard(wss, ws) {
 
 function drawCards(wss, ws, n) {
   for (let i = 0; i < n; i++) {
-    drawCard(wss, ws)
+    drawCard(wss, ws);
   }
 }
 
 function isSet(cards) {
-  let props = ['count', 'color', 'shading', 'shape']
-  let propSets = [false, false, false, false]
+  let props = ["count", "color", "shading", "shape"];
+  let propSets = [false, false, false, false];
 
   for (let i = 0; i < props.length; i++) {
-    if (cards[0][props[i]] === cards[1][props[i]]
-      && cards[1][props[i]] === cards[2][props[i]]) {
+    if (
+      cards[0][props[i]] === cards[1][props[i]] &&
+      cards[1][props[i]] === cards[2][props[i]]
+    ) {
       propSets[i] = true;
-    } else if (cards[0][props[i]] !== cards[1][props[i]]
-      && cards[1][props[i]] !== cards[2][props[i]]
-      && cards[2][props[i]] !== cards[0][props[i]]) {
+    } else if (
+      cards[0][props[i]] !== cards[1][props[i]] &&
+      cards[1][props[i]] !== cards[2][props[i]] &&
+      cards[2][props[i]] !== cards[0][props[i]]
+    ) {
       propSets[i] = true;
     }
   }
@@ -277,13 +306,13 @@ function isSet(cards) {
 function parseCards(indices, active) {
   let cards = [];
   for (let i = 0; i < indices.length; i++) {
-    let raw = active[indices[i]]
+    let raw = active[indices[i]];
     cards.push({
-      count: raw / 27 | 0,
-      color: raw / 9 % 3 | 0,
+      count: (raw / 27) | 0,
+      color: (raw / 9) % 3 | 0,
       shading: raw % 3 | 0,
-      shape: raw / 3 % 3 | 0,
-    })
+      shape: (raw / 3) % 3 | 0,
+    });
   }
   return cards;
 }
